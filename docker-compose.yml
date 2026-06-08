@@ -1,0 +1,141 @@
+services:
+
+  # ── Base de datos compartida ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: emplea-humboldt-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Microservicios ────────────────────────────────────────────────────────
+  autenticacion:
+    build: ./microservicio-autenticacion-usuarios
+    container_name: emplea-humboldt-autenticacion
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: auth_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET_KEY: local-dev-secret-key
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: 7
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_REGION: us-east-1
+      S3_BUCKET_NAME: emplea-humboldt-docs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  empleos:
+    build: ./microservicio-empleos
+    container_name: emplea-humboldt-empleos
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: emp_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET_KEY: local-dev-secret-key
+      JWT_ALGORITHM: HS256
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_REGION: us-east-1
+      S3_BUCKET_NAME: emplea-humboldt-docs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postulaciones:
+    build: ./microservicio-postulaciones
+    container_name: emplea-humboldt-postulaciones
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: post_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET_KEY: local-dev-secret-key
+      JWT_ALGORITHM: HS256
+      EMPLEOS_SERVICE_URL: http://empleos:8001
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_REGION: us-east-1
+      S3_BUCKET_NAME: emplea-humboldt-docs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seguimiento:
+    build: ./microservicio-seguimiento
+    container_name: emplea-humboldt-seguimiento
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: pra_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET_KEY: local-dev-secret-key
+      JWT_ALGORITHM: HS256
+      EMPLEOS_SERVICE_URL: http://empleos:8001
+      POSTULACIONES_SERVICE_URL: http://postulaciones:8002
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_REGION: us-east-1
+      S3_BUCKET_NAME: emplea-humboldt-docs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notificaciones:
+    build: ./microservicio-notificaciones
+    container_name: emplea-humboldt-notificaciones
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: noti_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET_KEY: local-dev-secret-key
+      JWT_ALGORITHM: HS256
+      INTERNAL_API_KEY: clave-interna-local
+      EMAIL_HABILITADO: "false"
+      PUSH_HABILITADO: "false"
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_REGION: us-east-1
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
