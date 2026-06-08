@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply bg-surface-1 text-ink-primary;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    border-color: theme('colors.default');
+  }
+}
